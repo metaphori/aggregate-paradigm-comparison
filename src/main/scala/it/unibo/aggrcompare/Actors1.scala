@@ -6,10 +6,12 @@ import akka.actor.typed.scaladsl.AskPattern.Askable
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
 import akka.util.Timeout
+import it.unibo.aggrcompare.Gradient.{NbrGradient, SetNeighbourGradient}
 import it.unibo.scafi.space.Point3D
 
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Success, Try}
 
 object C {
@@ -97,101 +99,6 @@ object Gradient {
   } } }
 }
 
-/**
- * 2nd attempt: generalisation and separation of concerns (context management & logic)
- */
-object AggrActor {
-  sealed trait Msg
-  case class SetSensor[T](v: SensorValue[T]) extends Msg
-  case class GetSensor[T](name: String, replyTo: ActorRef[SensorValue[T]]) extends Msg
-  case class SetNeighbourValue[T](name: String, nbr: ActorRef[Msg], value: T) extends Msg
-  case class GetNeighbourValue[T](name: String, replyTo: ActorRef[NbrValue[T]]) extends Msg
-
-  case class SensorValue[T](name: String, value: T)
-  case class NbrValue[T](name: String, value: T)
-
-  case object Round extends Msg
-
-  val deviceSK = ServiceKey[SensorBehavior]("devices")
-
-  def apply(id: Int, position: Point3D): Behavior[Any] = Behaviors.setup { ctx =>
-    Behaviors.withTimers { timers =>
-      implicit val ec: ExecutionContext = ctx.system.executionContext
-      implicit val sched: Scheduler = ctx.system.scheduler // for ask pattern
-      implicit val timeout: Timeout = Timeout(3.seconds) // for ask pattern
-
-      val stateActor = ctx.spawn(state(Map.empty, Map.empty), "state")
-      val locationSensor = ctx.spawn(sensor[Int,Point3D]("position", 0, position, (s,t,c) => (s,t)), "sensor-position")
-      locationSensor ! ProduceTo(stateActor)
-
-      val rec = ctx.system.receptionist
-
-      val topologyManager = ctx.spawn(sensor[Int,Set[ActorRef[Msg]]]("topology-manager", id, Set.empty, (devId,nbrs,ctx) => {
-        val f: Future[Listing] = rec.ask(Find(deviceSK))
-        f.onComplete(r => ctx.self ! SetValue(r.get.getAllServiceInstances(deviceSK)))
-        (devId, nbrs)
-      }), "sensor-topology-manager")
-      rec ! Receptionist.register(deviceSK, topologyManager)
-
-      Behaviors.empty
-  } }
-
-  def state(sensors: Map[String,Any],
-            nbrValues: Map[String,Map[ActorRef[Msg],Any]]): Behavior[Msg] = Behaviors.setup { ctx =>
-    Behaviors.withTimers { timers =>
-      Behaviors.receive { case (ctx, msg) =>
-        msg match {
-          case GetSensor(name, replyTo) =>
-            replyTo ! SensorValue(name, sensors(name))
-            Behaviors.same
-          case SetSensor(SensorValue(name,value)) =>
-            state(sensors + (name -> value), nbrValues)
-          case GetNeighbourValue(name, replyTo) =>
-            nbrValues.get(name).flatMap(_.get(ctx.self)).foreach(v =>
-              replyTo ! NbrValue(name, v)
-            )
-            Behaviors.same
-          case SetNeighbourValue(name, nbr, value) =>
-            state(sensors, nbrValues + (name -> (nbrValues.getOrElse(name, Map.empty) ++ Map(nbr -> value))))
-        }
-      }
-    }
-  }
-
-  case class Compute[T](replyTo: ActorRef[ComputeResults[T]])
-  case class ComputeResults[T](name: String, value: T)
-  case class State(sensors: Map[String,Any],
-                   nbrValues: Map[String,Map[ActorRef[Msg],Any]])
-
-  def compute[T](parent: ActorRef[Any], name: String, state: State, logic: State => ComputeResults[T]): Behavior[Compute[T]] = Behaviors.setup { ctx =>
-    Behaviors.withTimers { timers =>
-      Behaviors.receive { case (ctx, Compute(replyTo)) =>
-        val results = logic(state)
-        replyTo ! results
-        compute(parent, name, state.copy(nbrValues =
-          state.nbrValues + (name -> (state.nbrValues.getOrElse(name, Map.empty) ++ Map(parent -> results.value)))
-        ), logic)
-      }
-    }
-  }
-
-  trait SensorBehavior
-  case object Sample extends SensorBehavior
-  case class ProduceTo(recipient: ActorRef[Msg]) extends SensorBehavior
-  case class SetValue[T](v: T) extends SensorBehavior
-
-  def sensor[S,T](name: String, state: S, value: T, evolve: (S,T,ActorContext[SensorBehavior]) => (S,T)): Behaviors.Receive[SensorBehavior] = Behaviors.receive {
-    case (ctx, ProduceTo(recipient)) =>
-      recipient ! SetSensor(SensorValue(name, value))
-      Behaviors.same
-    case (ctx, Sample) =>
-      val (newState, newValue) = evolve(state, value, ctx)
-      sensor(name, newState, newValue, evolve)
-    case (ctx, SetValue(v: T)) =>
-      sensor[S,T](name, state, v, evolve)
-  }
-}
-
 
 object Actors1 extends App {
   println("Actors implementation")
@@ -210,19 +117,6 @@ object Actors1 extends App {
     map(3) ! Gradient.SetSource(true)
 
     map.values.foreach(_ ! Gradient.Round)
-
-    Behaviors.ignore
-  }, "ActorBasedChannel")
-}
-
-object Actors2 extends App {
-  println("Actors implementation")
-
-  val system = ActorSystem[C.Start.type](Behaviors.setup { ctx =>
-    var map = Map[Int, ActorRef[Any]]()
-    for(i <- 1 to 10) {
-      map += i -> ctx.spawn(AggrActor(i, Point3D(i,0,0)), s"device-${i}")
-    }
 
     Behaviors.ignore
   }, "ActorBasedChannel")
