@@ -52,7 +52,8 @@ object ChannelLogic {
 
   def channel(): Behavior[ChannelContext] = Behaviors.receiveMessage {
     case ComputeChannel(c, replyTo) =>
-      c.distanceToSource + c.distanceToTarget <= c.distanceBetweenSourceAndTarget + c.tolerance
+      val channel = c.distanceToSource + c.distanceToTarget <= c.distanceBetweenSourceAndTarget + c.tolerance
+      replyTo ! channel
       Behaviors.same
   }
 }
