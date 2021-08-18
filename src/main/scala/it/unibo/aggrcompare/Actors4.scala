@@ -48,9 +48,10 @@ object ChannelLogic {
     val distanceBetweenSourceAndTarget: Double
     val tolerance: Double
   }
-  case class ComputeChannel(c: ChannelContext, replyTo: ActorRef[Boolean])
+  trait ChannelProtocol
+  case class ComputeChannel(c: ChannelContext, replyTo: ActorRef[Boolean]) extends ChannelProtocol
 
-  def channel(): Behavior[ChannelContext] = Behaviors.receiveMessage {
+  def channel(): Behavior[ChannelProtocol] = Behaviors.receiveMessage {
     case ComputeChannel(c, replyTo) =>
       val channel = c.distanceToSource + c.distanceToTarget <= c.distanceBetweenSourceAndTarget + c.tolerance
       replyTo ! channel
