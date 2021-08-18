@@ -1,18 +1,10 @@
 package it.unibo.aggrcompare
 
-import akka.actor.typed.receptionist.Receptionist.{Find, Listing}
-import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.scaladsl.AskPattern.Askable
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Scheduler}
-import akka.util.Timeout
-import it.unibo.aggrcompare.Gradient.{NbrGradient, SetNeighbourGradient}
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import it.unibo.scafi.space.Point3D
 
-import scala.jdk.CollectionConverters._
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.{Success, Try}
+import scala.concurrent.duration.DurationInt
 
 object C {
   case object Start
