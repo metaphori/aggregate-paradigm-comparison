@@ -64,7 +64,7 @@ object Actors4 extends App {
   println("Actors implementation")
 
   val system = ActorSystem[C.Start.type](Behaviors.setup { ctx =>
-
+    // TODO
     Behaviors.ignore
   }, "ActorBasedChannel")
 }

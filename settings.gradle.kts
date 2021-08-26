@@ -8,3 +8,6 @@
  */
 
 rootProject.name = "experiment21-aggregate-paradigm-comparison"
+
+include("actors")
+include("pubsub")
