@@ -1,11 +1,8 @@
 package it.unibo.aggrcompare
 
-import io.vertx.core.buffer.Buffer
-import io.vertx.core.eventbus.MessageCodec
 import io.vertx.lang.scala.ScalaVerticle
-import io.vertx.lang.scala.json.{Json, JsonObject}
+import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.core.eventbus.{DeliveryOptions, Message}
 import it.unibo.scafi.space.Point3D
 
 import scala.concurrent.duration.DurationInt
