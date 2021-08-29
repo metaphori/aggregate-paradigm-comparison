@@ -1,32 +1,28 @@
 package it.unibo.aggrcompare
 
-import io.vertx.core.buffer.Buffer
-import io.vertx.core.eventbus.MessageCodec
 import io.vertx.lang.scala.ScalaVerticle
-import io.vertx.lang.scala.json.{Json, JsonObject}
+import io.vertx.scala.core.eventbus.Message
 import io.vertx.scala.core.{DeploymentOptions, Vertx}
-import io.vertx.scala.core.eventbus.{DeliveryOptions, Message}
 import it.unibo.scafi.space.Point3D
 
 import scala.concurrent.duration.DurationInt
 
-class DeviceVerticle(val mid: Int, var pos: Point3D) extends ScalaVerticle {
-  import DeviceVerticle._
+class DeviceVerticleGradient(val mid: Int, var pos: Point3D) extends ScalaVerticle {
+  // def getConfig[T](name: String) = config.getValue(name).asInstanceOf[T]
 
-  def getConfig[T](name: String) = config.getValue(name).asInstanceOf[T]
+  // def getField[T](obj: JsonObject, name: String): T = obj.getValue(name).asInstanceOf[T]
 
-  def getField[T](obj: JsonObject, name: String): T = obj.getValue(name).asInstanceOf[T]
-
-  def getMsgField[T](msg: Message[JsonObject], name: String): T = getField(msg.body(), name).asInstanceOf[T]
+  // def getMsgField[T](msg: Message[JsonObject], name: String): T = getField(msg.body(), name).asInstanceOf[T]
 
   var src: Boolean = false
   var gradient: Double = Double.PositiveInfinity
 
   var sensors: Map[String, Any] = Map.empty
+  var nbrValues: Map[String, Map[Int,Any]] = Map.empty
   var nbrData: Map[Int, NbrData] = Map.empty
 
   implicit class RichObj[T](value: T) {
-    def let[V](f: T => V): V = f(value)
+    def mapTo[V](f: T => V): V = f(value)
   }
 
   def myData = NbrData(mid, src, pos, gradient)
@@ -38,11 +34,11 @@ class DeviceVerticle(val mid: Int, var pos: Point3D) extends ScalaVerticle {
     eb.consumer[NbrData](Topics.deviceAddress(mid), (nbrMsg: Message[NbrData]) => {
       // println(s"${mid}: RECEIVED ${nbrMsg.body()}")
       val NbrData(nbr, src, nbrPos, grad) = nbrMsg.body()
-      if(nbrPos.distance(this.pos) <= neighbouringThreshold){ nbrData += nbr -> nbrMsg.body() } else { nbrData -= nbr}
+      if(nbrPos.distance(this.pos) <= Parameters.neighbouringThreshold){ nbrData += nbr -> nbrMsg.body() } else { nbrData -= nbr}
     })
     eb.consumer[NbrData](Topics.world, (nbrMsg: Message[NbrData]) => {
       val NbrData(nbr, _, nbrPos, _) = nbrMsg.body()
-      if(nbrPos.distance(this.pos) <= neighbouringThreshold){ nbrData += nbr -> nbrMsg.body() } else { nbrData -= nbr}
+      if(nbrPos.distance(this.pos) <= Parameters.neighbouringThreshold){ nbrData += nbr -> nbrMsg.body() } else { nbrData -= nbr}
     })
 
     eb.consumer(Topics.positionChange, (m: Message[PositionChange]) => { if(m.body().id == mid) { pos = m.body().newPos } })
@@ -68,31 +64,11 @@ case class NbrData(id: Int, src: Boolean, pos: Point3D, gradient: Double) extend
 case class PositionChange(id: Int, newPos: Point3D) extends Evt
 case class SourceChange(id: Int) extends Evt
 
-object DeviceVerticle {
-  val neighbouringThreshold = 1.5
-
-  object Topics {
-    val world: String = "world"
-
-    def compute(id: Int) = s"compute-${id}"
-    val positionChange = "positionChange"
-    val sourceChange = "sourceChange"
-    def deviceAddress(id: Int): String = s"device-${id}"
-  }
-
-  object Sensors {
-    val id = "id"
-    val pos = "pos"
-  }
-}
-
-object PubSubVertx extends App {
-  import DeviceVerticle._
-
+object PubSubVertxGradient extends App {
   val vertx = Vertx.vertx()
   val eb = vertx.eventBus()
   for(i <- 0 to 10) {
-    vertx.deployVerticle(new DeviceVerticle(i, Point3D(i,0,0)), DeploymentOptions())
+    vertx.deployVerticle(new DeviceVerticleGradient(i, Point3D(i,0,0)), DeploymentOptions())
   }
 
   def regCodec[T](klass: Class[T]): Unit = eb.registerDefaultCodec(klass, new GenericCodec[T](klass))
