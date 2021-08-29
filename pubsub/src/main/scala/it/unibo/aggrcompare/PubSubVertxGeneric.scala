@@ -46,8 +46,8 @@ object Computations {
 
   def broadcast[T](t: String, c: DeviceContext, src: Boolean, datum: T): T = {
     val g = gradient(t / "g", c, src)
-    val gradients: Map[Int,Double] = c.nbrsense[Double](t + "/g")
-    val broadcasted: Map[Int,T] = c.nbrsense[T](t)
+    val gradients: Map[Int,Double] = c.nbrsense[Double](t + "/g") + (c.mid -> Double.PositiveInfinity)
+    val broadcasted: Map[Int,T] = c.nbrsense[T](t) + (c.mid -> datum)
     val bvalueByMinNbr = broadcasted(gradients.minBy(_._2)._1)
     (if(src) datum else bvalueByMinNbr).let(c.export(t, _))
   }
@@ -100,7 +100,7 @@ class DeviceVerticle(initialSensors: Map[String, Any], computation: DeviceContex
     vertx.setPeriodic(1.seconds.toMillis, timerId => {
       exports = Map.empty // resed exports
       val result = computation(this)
-      println(s"${mid}: CONTEXT: \n ${sensors}\n${nbrValues}\nCOMPUTED => ${result}\nEXPORT => ${exports}")
+      println(s"${mid} => ${result}") // CONTEXT:   ${sensors} ${nbrValues} COMPUTED => ${result} EXPORT => ${exports}
     })
 
     vertx.setPeriodic(500.millis.toMillis, timerId => {
@@ -123,10 +123,12 @@ object PubSubVertx extends App {
       Sensors.id -> i,
       Sensors.pos -> Point3D(i,0,0),
       Sensors.source -> false,
+      Sensors.target -> (i == 8),
       Sensors.nbrs -> Set.empty
     ),
     c => {
-      Computations.gradient("global-g", c, c.sense[Boolean](Sensors.source))
+      // Computations.gradient("global-g", c, c.sense[Boolean](Sensors.source))
+      Computations.channel("chan", c, c.sense[Boolean](Sensors.source), c.sense[Boolean](Sensors.target), 0.0)
     }), DeploymentOptions())
   }
 
@@ -135,8 +137,6 @@ object PubSubVertx extends App {
   regCodec(classOf[SensorChange[_]])
 
   Thread.sleep(2000)
-
-  //eb.registerDefaultCodec(classOf[SourceChange], new GenericCodec[SourceChange](classOf[SourceChange]))
 
   for(i <- 0 to 10) {
     eb.publish(Topics.sensorChanged(i), Some(SensorChange(Sensors.pos, Point3D(i,0,0))))

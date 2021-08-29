@@ -17,6 +17,7 @@ object Topics {
 }
 
 object Sensors {
+  val target: String = "target"
   val nbrs: String = "nbrs"
   val nbrRange: String = "nbrRange"
   val id = "id"
