@@ -1,7 +1,7 @@
-def broadcast[T](t: String, c: DeviceContext, src: Boolean, datum: T): T = {
+def broadcast[T](t: String, c: DeviceContext, src: Boolean, field: T): T = {
   val g = gradient(t / "g", c, src)
   val gradients: Map[Int,Double] = c.nbrsense[Double](t + "/g") + (c.mid -> Double.PositiveInfinity)
-  val broadcasted: Map[Int,T] = c.nbrsense[T](t) + (c.mid -> datum)
-  val bvalueByMinNbr = broadcasted(gradients.minBy(_._2)._1)
-  (if(src) datum else bvalueByMinNbr).let(c.export(t, _))
+  val datum: Map[Int,T] = c.nbrsense[T](t) + (c.mid -> field)
+  val b = datum(gradients.minBy(_._2)._1)
+  (if(src) field else b).let(c.export(t, _))
 }

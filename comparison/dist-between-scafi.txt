@@ -1,2 +1,2 @@
-def distanceBetween(source: Boolean, target: Boolean): Double =
-  broadcast(source, distanceTo(target))
+def distanceBetween(src: Boolean, dest: Boolean): Double =
+  broadcast(src, distanceTo(dest))

@@ -1,6 +1,6 @@
 def channel(t: String, c: DeviceContext, src: Boolean, target: Boolean, width: Double): Boolean = {
-  val distanceToSource = gradient(t / "gradient1", c, src)
-  val distanceToTarget = gradient(t / "gradient2", c, target)
-  val distanceBetweenSourceAndTarget = distanceBetween(t / "distbetween", c, src, target)
-  (distanceToSource + distanceToTarget <= distanceBetweenSourceAndTarget + Parameters.channelTolerance).let(c.export(t, _))
+  val ds = gradient(t / "ds", c, src)
+  val dt = gradient(t / "dt", c, target)
+  val db = distanceBetween(t / "db", c, src, target)
+  (ds + dt <= db + width).let(c.export(t, _))
 }

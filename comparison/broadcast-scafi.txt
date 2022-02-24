@@ -1,6 +1,6 @@
-def broadcast[V](source: Boolean, field: V): V = {
-    val g = classicGradient(source)
+def broadcast[V](src: Boolean, field: V): V = {
+    val g = classicGradient(src)
     rep(field) { datum =>
-      mux(source) { (field) } { excludingSelf.minHoodSelector(nbr { g } )(nbr { datum }).getOrElse(field) }
+      mux(src) { (field) } { excludingSelf.minHoodSelector(nbr { g } )(nbr { datum }).getOrElse(field) }
     }
   }

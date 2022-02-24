@@ -1,11 +1,11 @@
 def gradient(t: String, c: DeviceContext, src: Boolean): Double = {
-  val gradients: Map[Int,Double] = c.nbrsense[Double](t)
-  val distances: Map[Int,Double] = c.nbrsense[Double](Sensors.nbrRange)
+  val g: Map[Int,Double] = c.nbrsense[Double](t)
+  val d: Map[Int,Double] = c.nbrsense[Double](Sensors.nbrRange)
   (
     if(src) { 0.0 }
-    else if(gradients.isEmpty) { Double.PositiveInfinity }
+    else if(g.isEmpty) { Double.PositiveInfinity }
     else {
-      gradients.map(ng => ng._1 -> (ng._2 + distances.getOrElse(ng._1, Double.PositiveInfinity))).minBy(_._2)._2
+      g.map(ng => ng._1 -> (ng._2 + d.getOrElse(ng._1, Double.PositiveInfinity))).minBy(_._2)._2
     }
   ).let(c.export(t, _))
 }
