@@ -96,7 +96,6 @@ class DeviceVerticle(initialSensors: Map[String, Any], computation: DeviceContex
       nbrExports.foreach{ case (k,v) => nbrValues += k -> (nbrValues.getOrElse(k, Map.empty) + (nbr -> v)) }
     })
 
-
     vertx.setPeriodic(1.seconds.toMillis, timerId => {
       exports = Map.empty // resed exports
       val result = computation(this)

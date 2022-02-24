@@ -7,7 +7,7 @@ repositories {
     mavenCentral()
 }
 
-val scalaMajor by extra {  "2.12" }
+val scalaMajor by extra {  "2.13" }
 val scalaMinor by extra { "2" }
 val scalaVersion = "$scalaMajor.$scalaMinor"
 val akkaVersion by extra {  "2.6.14" }

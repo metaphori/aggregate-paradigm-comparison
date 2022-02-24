@@ -1,0 +1,16 @@
+def broadcast[V](source: Boolean, field: V, metric: Metric = nbrRange): V =
+  Gcurried(source)(field)(v => v)(metric)
+
+def Gcurried[V](source: Boolean)(field: V)(acc: V => V)(metric: Metric = nbrRange): V =
+  G(source, field, acc, metric)
+
+def G[V](source: Boolean, field: V, acc: V => V, metric: () => Double): V =
+  rep((Double.MaxValue, field)) { case (dist, value) =>
+    mux(source) {
+      (0.0, field)
+    } {
+      excludingSelf
+        .minHoodSelector(nbr { dist } + metric())((nbr { dist } + metric(), acc(nbr { value })))
+        .getOrElse((Double.PositiveInfinity, field))
+    }
+  }._2

@@ -1,0 +1,4 @@
+def distanceBetween(t: String, c: DeviceContext, src: Boolean, dest: Boolean): Double = {
+  val distToDest = gradient(t / "g", c, dest)
+  broadcast(t / "broadcast", c, src, distToDest).let(c.export(t, _))
+}

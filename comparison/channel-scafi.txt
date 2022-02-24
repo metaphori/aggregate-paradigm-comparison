@@ -1,0 +1,6 @@
+def channel(source: Boolean, target: Boolean, width: Double): Boolean = {
+  val ds = distanceTo(source)
+  val dt = distanceTo(target)
+  val db = distanceBetween(source, target)
+  !((ds + dt).isInfinite && db.isInfinite) && ds + dt <= db + width
+}

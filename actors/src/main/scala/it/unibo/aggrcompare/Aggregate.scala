@@ -29,10 +29,28 @@ object Aggregate extends App {
     })
 }
 
-class ChannelProgram extends AggregateProgram with StandardSensors with BlockG {
+class ChannelProgram extends AggregateProgram with StandardSensors with BlockG with FieldUtils {
   val width = 0.0
   def source = sense[Boolean]("source")
   def target = sense[Boolean]("target")
+
+  /*
+  override def broadcast[V](source: Boolean, field: V, metric: Metric = nbrRange): V = {
+    rep((Double.PositiveInfinity,field)){ case (g,datum) =>
+      mux[(Double,V)](source){ (0.0, field) } {
+        excludingSelf.minHoodSelector[Double,(Double,V)](nbr { g + metric() })((nbr {g} + metric(), nbr {datum } ))
+          .getOrElse((Double.PositiveInfinity, field))
+      }
+    }._2
+  }
+   */
+
+  override def broadcast[V](source: Boolean, field: V, metric: Metric = nbrRange): V = {
+    val g = classicGradient(source)
+    rep(field) { datum =>
+      mux(source) { (field) } { excludingSelf.minHoodSelector(nbr { g } )(nbr { datum }).getOrElse(field) }
+    }
+  }
 
   override def main(): Any = {
     val c = channel(source, target, width)

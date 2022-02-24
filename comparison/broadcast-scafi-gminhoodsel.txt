@@ -1,0 +1,8 @@
+def broadcast[V](source: Boolean, field: V, metric: Metric = nbrRange): V = {
+    rep((Double.PositiveInfinity,field)){ case (g,datum) =>
+      mux[(Double,V)](source){ (0.0, field) } {
+        excludingSelf.minHoodSelector[Double,(Double,V)](nbr { g + metric() })((nbr {g} + metric(), nbr {datum } ))
+          .getOrElse((Double.PositiveInfinity, field))
+      }
+    }._2
+  }

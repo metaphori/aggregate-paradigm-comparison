@@ -1,0 +1,8 @@
+def classicGradient(source: Boolean): Double =
+  rep(Double.PositiveInfinity) { case d =>
+    mux(source) {
+      0.0
+    } {
+      minHoodPlus(nbr(d) + nbrRange())
+    }
+  }

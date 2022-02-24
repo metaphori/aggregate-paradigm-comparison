@@ -1,0 +1,6 @@
+def broadcast[V](source: Boolean, field: V): V = {
+    val g = classicGradient(source)
+    rep(field) { datum =>
+      mux(source) { (field) } { excludingSelf.minHoodSelector(nbr { g } )(nbr { datum }).getOrElse(field) }
+    }
+  }
