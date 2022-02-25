@@ -8,17 +8,24 @@ import it.unibo.scafi.space.Point3D
 import scala.concurrent.duration.DurationInt
 
 trait PubSubBasicDeviceContext {
+  // State for sensors and data from neighbours
   var sensors: Map[String, Any] = Map.empty
-  // var exports: Map[String,Any] = Map.empty
+  // var exports: Map[String,Any] = Map.empty // NB: no data structure for exports
   var nbrRange: Map[Int, Double] = Map.empty
   var nbrPos: Map[Int, Point3D] = Map.empty
   var nbrDistToSource: Map[Int, Double] = Map.empty // NB: needed for choosing which contribution from a nbr to use for own distBetween value
-
+  // State for local values of the target "computational fields" to be computed
+  var distToSource: Double = Double.PositiveInfinity
+  var distToTarget: Double = Double.PositiveInfinity
+  var distBetween: Double = Double.PositiveInfinity
+  var channel: Boolean = false
+  // Methods for getting sensor data
+  def sense[T](name: String): T = sensors(name).asInstanceOf[T]
   def mid: Int = sense(Sensors.id)
   def pos: Point3D = sense(Sensors.pos)
   def nbrs: Set[Int] = sense(Sensors.nbrs)
-
-  def sense[T](name: String): T = sensors(name).asInstanceOf[T]
+  def isSource(): Boolean = sense(Sensors.source)
+  def isTarget(): Boolean = sense(Sensors.target)
 }
 
 class PubSubDeviceVerticle(initialSensors: Map[String, Any])
@@ -26,12 +33,6 @@ class PubSubDeviceVerticle(initialSensors: Map[String, Any])
   import PubSubVertxChannel.{ Topics, NbrDatum }
 
   sensors = initialSensors
-  def isSource(): Boolean = sense(Sensors.source)
-  def isTarget(): Boolean = sense(Sensors.target)
-  var distToSource: Double = Double.PositiveInfinity
-  var distToTarget: Double = Double.PositiveInfinity
-  var distBetween: Double = Double.PositiveInfinity
-  var channel: Boolean = false
 
   override def start(): Unit = {
     println(s"DEVICE ${mid} AT POS ${pos}")

@@ -1,0 +1,82 @@
+def publishToNbrs(topic: Int => String, v: Any): Unit = {
+  for(nbr <- nbrs) {
+    eb.send(topic(nbr), Some(NbrDatum(mid, v)))
+  }
+}
+def computeChannel(): Unit = {
+  channel = distToSource + distToTarget <= distBetween
+}
+def setDistToSource(to: Double): Unit = {
+  if(distToSource != to) {
+    distToSource = to
+    publishToNbrs(Topics.changedDistToSource, to)
+  }
+  computeChannel()
+}
+def setDistToTarget(to: Double): Unit = {
+  if(distToSource != to) {
+    distToTarget = to
+    publishToNbrs(Topics.changeDistToTarget, to)
+  }
+  computeChannel()
+}
+def setDistBetween(to: Double): Unit = {
+  if(distBetween != to) {
+    distBetween = to
+    publishToNbrs(Topics.changeDistBetween, to)
+  }
+  computeChannel()
+}
+eb.consumer[NbrDatum[_]](Topics.changedDistToSource(mid), (msg: Message[NbrDatum[_]]) => {
+  val NbrDatum(devId, value: Double) = msg.body()
+  nbrDistToSource += devId -> value
+  if(nbrs.contains(devId) && devId != mid){
+    if(!isSource()) {
+      setDistToSource(Math.min(distToSource, value + nbrRange.getOrElse(devId, Double.PositiveInfinity)))
+    }
+  }
+})
+eb.consumer[NbrDatum[_]](Topics.changeDistToTarget(mid), (msg: Message[NbrDatum[_]]) => {
+  val NbrDatum(devId, value: Double) = msg.body()
+  if(nbrs.contains(devId) && devId != mid){
+    if(!isTarget()) {
+      val newVal = Math.min(distToTarget, value + nbrRange.getOrElse(devId, Double.PositiveInfinity))
+      if(isSource() && newVal != distToTarget){ // the source should start distBetween calculation once it perceives the distance to the target
+        setDistBetween(newVal)
+      }
+      setDistToTarget(newVal)
+    }
+  }
+})
+eb.consumer[NbrDatum[_]](Topics.changeDistBetween(mid), (msg: Message[NbrDatum[_]]) => {
+  val NbrDatum(devId, value: Double) = msg.body()
+  if(nbrs.contains(devId) && devId != mid){
+    if(!nbrDistToSource.isEmpty && devId == nbrDistToSource.minBy(_._2)._1) {
+      setDistBetween(value)
+    }
+  }
+})
+eb.consumer[SensorChange[_]](Topics.sensorChanged(mid), (nbrMsg: Message[SensorChange[_]]) => {
+  val SensorChange(name, value) = nbrMsg.body()
+  sensors += name -> value
+  nbrMsg.body() match {
+    case SensorChange(Sensors.source, false) =>
+      setDistToSource(Double.PositiveInfinity)
+    case SensorChange(Sensors.source, true) =>
+      setDistToSource(0)
+    case SensorChange(Sensors.target, false) =>
+      setDistToTarget(Double.PositiveInfinity)
+    case SensorChange(Sensors.target, true) =>
+      setDistToTarget(0)
+    case SensorChange(Sensors.pos, myPos: Point3D) => {
+      nbrPos += mid -> myPos
+      setDistToSource(Double.PositiveInfinity)
+      nbrs.foreach(nbr => eb.send(Topics.sensorChanged(nbr), Some(SensorChange(Sensors.nbrRange, mid -> pos))))
+    }
+    case SensorChange(Sensors.nbrRange, npos: (Int,Point3D)) => {
+      nbrPos += npos
+      nbrRange += npos._1 -> (npos._2.distance(pos))
+    }
+    case _ => { }
+  }
+})
