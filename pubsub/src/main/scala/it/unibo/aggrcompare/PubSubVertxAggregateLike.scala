@@ -7,20 +7,16 @@ import it.unibo.scafi.space.Point3D
 
 import scala.concurrent.duration.DurationInt
 
-trait Msg extends Serializable
 case class NbrExport(id: Int, exports: Map[String,Any]) extends Msg
-case class SensorChange[T](name: String, value: T) extends Msg
 
-trait DeviceContext {
+trait AggregateDeviceContext {
   def sense[T](name: String): T
+  def nbrsense[T](name: String): Map[Int,T]
+  def export[T](name: String, value: T): Unit
 
   def mid: Int = sense(Sensors.id)
   def pos: Point3D = sense(Sensors.pos)
   def nbrs: Set[Int] = sense(Sensors.nbrs)
-
-  def nbrsense[T](name: String): Map[Int,T]
-
-  def export[T](name: String, value: T): Unit
 }
 
 object Computations {
@@ -32,7 +28,7 @@ object Computations {
     def /(t: String): String = s + "/" + t
   }
 
-  def gradient(t: String, c: DeviceContext, src: Boolean): Double = {
+  def gradient(t: String, c: AggregateDeviceContext, src: Boolean): Double = {
     val gradients: Map[Int,Double] = c.nbrsense[Double](t)
     val distances: Map[Int,Double] = c.nbrsense[Double](Sensors.nbrRange)
     (
@@ -44,7 +40,7 @@ object Computations {
     ).let(c.export(t, _))
   }
 
-  def broadcast[T](t: String, c: DeviceContext, src: Boolean, datum: T): T = {
+  def broadcast[T](t: String, c: AggregateDeviceContext, src: Boolean, datum: T): T = {
     val g = gradient(t / "g", c, src)
     val gradients: Map[Int,Double] = c.nbrsense[Double](t + "/g") + (c.mid -> Double.PositiveInfinity)
     val broadcasted: Map[Int,T] = c.nbrsense[T](t) + (c.mid -> datum)
@@ -52,12 +48,12 @@ object Computations {
     (if(src) datum else bvalueByMinNbr).let(c.export(t, _))
   }
 
-  def distanceBetween(t: String, c: DeviceContext, src: Boolean, dest: Boolean): Double = {
+  def distanceBetween(t: String, c: AggregateDeviceContext, src: Boolean, dest: Boolean): Double = {
     val distToDest = gradient(t / "g", c, dest)
     broadcast(t / "broadcast", c, src, distToDest).let(c.export(t, _))
   }
 
-  def channel(t: String, c: DeviceContext, src: Boolean, target: Boolean, width: Double): Boolean = {
+  def channel(t: String, c: AggregateDeviceContext, src: Boolean, target: Boolean, width: Double): Boolean = {
     val distanceToSource = gradient(t / "gradient1", c, src)
     val distanceToTarget = gradient(t / "gradient2", c, target)
     val distanceBetweenSourceAndTarget = distanceBetween(t / "distbetween", c, src, target)
@@ -65,7 +61,7 @@ object Computations {
   }
 }
 
-trait BasicDeviceContext extends DeviceContext {
+trait BasicDeviceContext extends AggregateDeviceContext {
   var sensors: Map[String, Any] = Map.empty
   var nbrValues: Map[String, Map[Int,Any]] = Map.empty
   var exports: Map[String,Any] = Map.empty
@@ -79,7 +75,7 @@ trait BasicDeviceContext extends DeviceContext {
   }
 }
 
-class DeviceVerticle(initialSensors: Map[String, Any], computation: DeviceContext => Any) extends ScalaVerticle with BasicDeviceContext {
+class DeviceVerticle(initialSensors: Map[String, Any], computation: AggregateDeviceContext => Any) extends ScalaVerticle with BasicDeviceContext {
   sensors = initialSensors
 
   override def start(): Unit = {
@@ -97,7 +93,7 @@ class DeviceVerticle(initialSensors: Map[String, Any], computation: DeviceContex
     })
 
     vertx.setPeriodic(1.seconds.toMillis, timerId => {
-      exports = Map.empty // resed exports
+      exports = Map.empty // reset exports
       val result = computation(this)
       println(s"${mid} => ${result}") // CONTEXT:   ${sensors} ${nbrValues} COMPUTED => ${result} EXPORT => ${exports}
     })
