@@ -61,7 +61,7 @@ object Computations {
     val distanceToSource = gradient(t / "gradient1", c, src)
     val distanceToTarget = gradient(t / "gradient2", c, target)
     val distanceBetweenSourceAndTarget = distanceBetween(t / "distbetween", c, src, target)
-    (distanceToSource + distanceToTarget <= distanceBetweenSourceAndTarget + Parameters.channelTolerance).let(c.export(t, _))
+    (distanceToSource + distanceToTarget <= distanceBetweenSourceAndTarget + width).let(c.export(t, _))
   }
 }
 
@@ -114,7 +114,7 @@ class DeviceVerticle(initialSensors: Map[String, Any], computation: DeviceContex
   }
 }
 
-object PubSubVertx extends App {
+object PubSubVertxAggregateLike extends App {
   val vertx = Vertx.vertx()
   val eb = vertx.eventBus()
   for(i <- 0 to 10) {
