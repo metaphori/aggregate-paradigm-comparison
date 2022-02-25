@@ -12,17 +12,13 @@ trait PubSubBasicDeviceContext {
   // var exports: Map[String,Any] = Map.empty
   var nbrRange: Map[Int, Double] = Map.empty
   var nbrPos: Map[Int, Point3D] = Map.empty
+  var nbrDistToSource: Map[Int, Double] = Map.empty // NB: needed for choosing which contribution from a nbr to use for own distBetween value
 
   def mid: Int = sense(Sensors.id)
   def pos: Point3D = sense(Sensors.pos)
   def nbrs: Set[Int] = sense(Sensors.nbrs)
 
   def sense[T](name: String): T = sensors(name).asInstanceOf[T]
-  /*
-  def export[T](name: String, value: T): Unit = {
-    exports += name -> value
-  }
-   */
 }
 
 class PubSubDeviceVerticle(initialSensors: Map[String, Any])
@@ -48,28 +44,39 @@ class PubSubDeviceVerticle(initialSensors: Map[String, Any])
         eb.send(topic(nbr), Some(NbrDatum(mid, v)))
       }
     }
+
+    def computeChannel(): Unit = {
+      channel = distToSource + distToTarget <= distBetween
+    }
+
     def setDistToSource(to: Double): Unit = {
       if(distToSource != to) {
         distToSource = to
         publishToNbrs(Topics.changedDistToSource, to)
       }
+      computeChannel()
     }
+
     def setDistToTarget(to: Double): Unit = {
       if(distToSource != to) {
         distToTarget = to
         publishToNbrs(Topics.changeDistToTarget, to)
       }
+      computeChannel()
     }
+
     def setDistBetween(to: Double): Unit = {
       if(distBetween != to) {
         distBetween = to
         publishToNbrs(Topics.changeDistBetween, to)
       }
+      computeChannel()
     }
 
     eb.consumer[NbrDatum[_]](Topics.changedDistToSource(mid), (msg: Message[NbrDatum[_]]) => {
       val NbrDatum(devId, value: Double) = msg.body()
       //println(s"I am ${mid} and I got from $devId the msg ${msg.body()} ... ${nbrs} - ${isSource()} -- ${nbrRange}")
+      nbrDistToSource += devId -> value
       if(nbrs.contains(devId) && devId != mid){
         if(!isSource()) {
           println("UPDATE GRADIENT")
@@ -83,7 +90,12 @@ class PubSubDeviceVerticle(initialSensors: Map[String, Any])
       // println(s"(DIST-TO-TARGET) I am ${mid} and I got from $devId the msg ${msg.body()} ... ${nbrs} - ${isSource()} -- ${nbrRange}")
       if(nbrs.contains(devId) && devId != mid){
         if(!isTarget()) {
-          setDistToTarget(Math.min(distToTarget, value + nbrRange.getOrElse(devId, Double.PositiveInfinity)))
+          val newVal = Math.min(distToTarget, value + nbrRange.getOrElse(devId, Double.PositiveInfinity))
+          if(isSource() && newVal != distToTarget){ // the source should start distBetween calculation once it perceives the distance to the target
+            // println(s"${mid} source and setting a new value for distToTarget = ${newVal}, starting distBetweenComputation then")
+            setDistBetween(newVal)
+          }
+          setDistToTarget(newVal)
         }
       }
     })
@@ -91,7 +103,10 @@ class PubSubDeviceVerticle(initialSensors: Map[String, Any])
     eb.consumer[NbrDatum[_]](Topics.changeDistBetween(mid), (msg: Message[NbrDatum[_]]) => {
       val NbrDatum(devId, value: Double) = msg.body()
       if(nbrs.contains(devId) && devId != mid){
-        setDistBetween(value)
+        if(!nbrDistToSource.isEmpty && devId == nbrDistToSource.minBy(_._2)._1) {
+          println(s"${mid}: got from ${devId} its value of distBetween = $value")
+          setDistBetween(value)
+        }
       }
     })
 
@@ -121,7 +136,7 @@ class PubSubDeviceVerticle(initialSensors: Map[String, Any])
     })
 
     vertx.setPeriodic(2.seconds.toMillis, _ => {
-      println(s"device ${mid}\n\tdistToSource=${distToSource} -- distToTarget=${distToTarget} -- distBetween=${distBetween}\n\tchannel=${channel}")
+      println(s"device ${mid}: distToSource=${distToSource} -- distToTarget=${distToTarget} -- distBetween=${distBetween} -- channel=${channel}")
     })
 
     println(s"STARTING ${mid}.")
