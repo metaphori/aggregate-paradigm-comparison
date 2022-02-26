@@ -5,3 +5,4 @@ Please take a look at the following solutions for the self-healing channel probl
 - [Aggregate.scala](actors/src/main/scala/it/unibo/aggrcompare/Aggregate.scala)
 - [PubSubVertxChannel](pubsub/src/main/scala/it/unibo/aggrcompare/PubSubVertxChannel.scala)
 - [PubSubVertxAggregateLike.scala](pubsub/src/main/scala/it/unibo/aggrcompare/PubSubVertxAggregateLike.scala)
+- Folder [comparison](/comparison) for a selection of relevant code snippets
